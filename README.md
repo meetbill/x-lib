@@ -6,10 +6,15 @@ python 常用库集合
 ## 快速体验
 
 > * python demo.py
->   * python demo.py table
->   * python demo.py log
->   * python demo.py hello "world"
+>   * python demo.py table           # 终端表格
+>   * python demo.py log             # 日志
+>   * python demo.py hello "world"   
+>   * python demo.py test_easyrun    # 执行 shell 命令
+>   * python demo.py test_schema     # 参数检查
 
+## 了解更多
+
+> * https://github.com/meetbill/MyPythonLib
 
 ## 参加步骤
 
