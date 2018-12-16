@@ -11,6 +11,7 @@ python 常用库集合
 >   * python demo.py hello "world"   
 >   * python demo.py test_easyrun    # 执行 shell 命令
 >   * python demo.py test_schema     # 参数检查
+>   * python demo.py test_mpmt       # 多进程多线程执行程序
 
 ## 了解更多
 

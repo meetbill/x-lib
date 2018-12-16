@@ -19,6 +19,7 @@ import blog
 import ttable
 import schema
 import easyrun
+import mpmt
 
 
 def table():
@@ -122,6 +123,29 @@ def test_easyrun():
     exe_result = easyrun.run_capture('ls')
     if exe_result.success:
         print exe_result.output
+
+
+def test_mpmt():
+
+    def _worker(index):
+        """
+        工作函数，接受任务参数，并进行实际的工作
+        总是工作在外部进程的线程中 （即不工作在主进程中）
+        """
+        time.sleep(0.2)  # delay 0.2 second
+        # worker 函数的返回值会被加入到队列中，供 handler 依次处理，返回值允许除了 StopIteration 以外的任何类型
+        return index, "hello world"
+    # 下面这些值用于多次运行，看时间
+    m = mpmt.MPMT(_worker, processes=1, threads=10)
+    m.start()  # start and fork subprocess
+
+    # 把任务加入任务队列，一共 200 次
+    for i in range(200):
+        m.put(i)
+
+    # 等待全部任务及全部结果处理完成
+    m.join()
+    print(m.get_result())
 
 
 if __name__ == '__main__':
