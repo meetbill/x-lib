@@ -9,7 +9,7 @@ import blog
 import Queue
 
 debug = False
-logpath = "./log/mpms.log"
+logpath = "./log/mpmt.log"
 _logger = blog.Log(
     logpath,
     level="debug",

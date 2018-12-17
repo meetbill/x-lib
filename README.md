@@ -16,6 +16,7 @@ python 常用库集合
 ## 了解更多
 
 > * https://github.com/meetbill/MyPythonLib
+> * https://github.com/meetbill/mpmt
 
 ## 参加步骤
 
