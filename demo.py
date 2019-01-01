@@ -20,6 +20,7 @@ import ttable
 import schema
 import easyrun
 import mpmt
+import logging
 
 
 def table():
@@ -62,6 +63,13 @@ def hello(str_info):
 
 
 def log():
+    # 通用模块日志
+    blog.init_log("./log/common.log")
+    logging.info("info log")
+    logging.warning("warning log")
+    logging.error("error log")
+    logging.debug("debug log")
+    # 独立模块日志
     debug = True
     logpath = "./log/test.log"
     logger = blog.Log(
@@ -74,8 +82,8 @@ def log():
 
     logstr = "helloworld"
     logger.error(logstr)
-    logger.warn(logstr)
     logger.info(logstr)
+    logger.warn(logstr)
     logger.debug(logstr)
 
 
