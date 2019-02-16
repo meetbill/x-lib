@@ -23,32 +23,36 @@ try:
 except BaseException:
     pass
 
-VERSION = (2, 0, 0, 4)
+VERSION = (2, 0, 0, 5)
 VERSION_STR = "{}.{}.{}.{}".format(*VERSION)
 
 
-def _worker_container(task_q, result_q, func):
+def _worker_container(mpmt_flag, task_q, result_q, func):
     """
     Args:
         result_q (Queue|None)
     """
     _th_name = threading.current_thread().name
 
-    _logger.debug('[W++] mpms worker %s starting' % _th_name)
+    _logger.debug(
+        '[mpmt_flag]:%s [W++] mpmt worker %s starting' %
+        (mpmt_flag, _th_name))
 
     while True:
         taskid, args, kwargs = task_q.get()
-        # _logger.debug("mpms worker %s got taskid:%s", _th_name, taskid)
+        # _logger.debug("mpmt worker %s got taskid:%s", _th_name, taskid)
 
         if taskid is StopIteration:
-            _logger.debug("[W++] mpms worker %s got stop signal" % _th_name)
+            _logger.debug(
+                "[mpmt_flag]:%s [W++] mpmt worker %s got stop signal" %
+                (mpmt_flag, _th_name))
             break
         try:
             result = func(*args, **kwargs)
         except Exception as e:
             _logger.error(
-                "[W++] Unhandled error %s in worker thread, taskid: %s" %
-                (e, taskid))
+                "[mpmt_flag]:%s [W++] Unhandled error %s in worker thread, taskid: %s" %
+                (mpmt_flag, e, taskid))
             if result_q is not None:
                 result_q.put_nowait((taskid, e))
         else:
@@ -57,7 +61,7 @@ def _worker_container(task_q, result_q, func):
                 result_q.put_nowait((taskid, result))
 
 
-def _slaver(task_q, result_q, threads, func):
+def _slaver(mpmt_flag, task_q, result_q, threads, func):
     """
     接收与多进程任务并分发给子线程
 
@@ -72,13 +76,13 @@ def _slaver(task_q, result_q, threads, func):
         multiprocessing.current_process().pid,
     )
     _logger.debug(
-        "[W] mpms subprocess %s start. threads:%s" %
-        (_process_name, threads))
+        "[mpmt_flag]:%s [W] mpmt subprocess %s start. threads:%s" %
+        (mpmt_flag, _process_name, threads))
 
     pool = []
     for i in range(threads):
         th = threading.Thread(target=_worker_container,
-                              args=(task_q, result_q, func),
+                              args=(mpmt_flag, task_q, result_q, func),
                               name="{}#{}".format(_process_name, i + 1)
                               )
         th.daemon = True
@@ -89,7 +93,9 @@ def _slaver(task_q, result_q, threads, func):
     for th in pool:
         th.join()
 
-    _logger.debug("[W] mpms subprocess %s exiting" % _process_name)
+    _logger.debug(
+        "[mpmt_flag]:%s [W] mpmt subprocess %s exiting" %
+        (mpmt_flag, _process_name))
 
 
 def get_cpu_count():
@@ -119,9 +125,11 @@ class MPMT(object):
             processes=None,
             threads=2,
             task_queue_maxsize=-1,
+            mpmt_flag="mpmt"
     ):
         self.worker = worker
         self.collector = True
+        self.mpmt_flag = mpmt_flag
 
         self.processes_count = processes or get_cpu_count() or 1
         if self.processes_count == 1:
@@ -156,7 +164,9 @@ class MPMT(object):
         self.worker_processes_pool = []
         self.running_tasks = {}
         self.result = []
-        _logger.debug("[version]:%s" % (VERSION_STR))
+        _logger.debug(
+            "[mpmt_flag]:%s [version]:%s" %
+            (self.mpmt_flag, VERSION_STR))
 
     def start(self):
         if self.worker_processes_pool:
@@ -164,32 +174,35 @@ class MPMT(object):
 
         if self.multi:
             _logger.debug(
-                "[start] [worker-multi] mpms starting worker subprocess")
+                "[mpmt_flag]:%s [start] [worker-multi] mpmt starting worker subprocess" % (self.mpmt_flag))
             for i in range(self.processes_count):
                 p = multiprocessing.Process(
                     target=_slaver,
                     args=(
+                        self.mpmt_flag,
                         self.task_q,
                         self.result_q,
                         self.threads_count,
                         self.worker),
-                    name="mpms-{}".format(i + 1)
+                    name="mpmt-{}".format(i + 1)
                 )
                 p.daemon = True
                 p.start()
                 self.worker_processes_pool.append(p)
         else:
             _logger.debug(
-                "[start] [worker-nil] mpms starting worker subprocess")
+                "[mpmt_flag]:%s [start] [worker-nil] mpmt starting worker subprocess" % (self.mpmt_flag))
         if self.collector is not None:
-            _logger.debug("[start] mpms starting collector thread")
+            _logger.debug(
+                "[mpmt_flag]:%s [start] mpmt starting collector thread" %
+                (self.mpmt_flag))
             self.collector_thread = threading.Thread(
-                target=self._collector_container, name='mpms-collector')
+                target=self._collector_container, name='mpmt-collector')
             self.collector_thread.daemon = True
             self.collector_thread.start()
         else:
             _logger.debug(
-                "[start] mpms no collector given, skip collector thread")
+                "[mpmt_flag]:%s [start] mpmt no collector given, skip collector thread" % (self.mpmt_flag))
 
     def put(self, *args, **kwargs):
         """
@@ -223,52 +236,62 @@ class MPMT(object):
             for p in self.worker_processes_pool:  # type: multiprocessing.Process
                 p.join()
                 _logger.debug(
-                    "[join] [work-multi] mpms subprocess %s %s closed" %
-                    (p.name, p.pid))
+                    "[mpmt_flag]:%s [join] [work-multi] mpmt subprocess %s %s closed" %
+                    (self.mpmt_flag, p.name, p.pid))
         else:
             _slaver(
+                self.mpmt_flag,
                 self.task_q,
                 self.result_q,
                 self.threads_count,
                 self.worker)
-            _logger.debug("[join] [work-nil] mpms closed")
-        _logger.debug("[join] mpms all worker completed")
+            _logger.debug(
+                "[mpmt_flag]:%s [join] [work-nil] mpmt closed" %
+                (self.mpmt_flag))
+        _logger.debug(
+            "[mpmt_flag]:%s [join] mpmt all worker completed" %
+            (self.mpmt_flag))
 
         if self.collector:
             self.result_q.put_nowait((StopIteration, None))  # 在结果队列中加入退出指示信号
             self.collector_thread.join()  # 等待处理线程结束
 
-        _logger.debug("[join] mpms join completed")
+        _logger.debug(
+            "[mpmt_flag]:%s [join] mpmt join completed" %
+            (self.mpmt_flag))
 
     def _gen_taskid(self):
-        return "mpms{}".format(self.total_count)
+        return "mpmt{}".format(self.total_count)
 
     def _collector_container(self):
         """
         接受子进程传入的结果,并把它发送到master_product_handler()中
 
         """
-        _logger.debug("[C] mpms collector start")
+        _logger.debug(
+            "[mpmt_flag]:%s [C] mpmt collector start" %
+            (self.mpmt_flag))
 
         while True:
             taskid, result = self.result_q.get()
 
             if taskid is StopIteration:
-                _logger.debug("[C] mpms collector got stop signal")
+                _logger.debug(
+                    "[mpmt_flag]:%s [C] mpmt collector got stop signal" %
+                    (self.mpmt_flag))
                 break
             self.running_tasks.pop(taskid)
             self.taskid = taskid
             self.finish_count += 1
             _logger.debug(
-                "[C] mpms collector finish [%d/%d]" %
-                (self.finish_count, self.total_count))
+                "[mpmt_flag]:%s [C] collector finish [%d/%d]" %
+                (self.mpmt_flag, self.finish_count, self.total_count))
             try:
                 self.result.append(result)
             except BaseException:
                 # 为了继续运行, 不抛错
                 _logger.error(
-                    "[C] an error occurs in collector, task: %s" %
-                    taskid)
+                    "[mpmt_flag]:%s [C] an error occurs in collector, task: %s" % (self.mpmt_flag, taskid))
 
     def close(self):
         """
