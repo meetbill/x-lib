@@ -12,7 +12,7 @@ import sys
 import os
 root_path = os.path.split(os.path.realpath(__file__))[0]
 os.chdir(root_path)
-sys.path.insert(0, os.path.join(root_path, 'w_lib'))
+sys.path.insert(0, os.path.join(root_path, 'xlib'))
 
 import color
 import blog
@@ -155,6 +155,53 @@ def test_mpmt():
     m.join()
     print(m.get_result())
 
+def agent(action):
+    import daemon
+    def helloworld():
+        import time
+        # stdout 文件默认开启的缓冲写，所以需要隔一段时间才能看到日志中有文件写入
+        # open 函数中有一个 bufferin 的参数，默认是 -1，如果设置为 0 时，就是无缓冲模式
+        # open("./log/test.txt",'a+',buffering=0)
+        while True:
+            print "helloworld"
+            print "Start : %s" % time.ctime()
+            time.sleep(1)
+            print "End : %s" % time.ctime()
+
+    class MyDaemon(daemon.Daemon):
+        def run(self):
+            helloworld()
+    ######################################
+    # edit this code
+    cur_dir = os.getcwd()
+    if not os.path.exists("{cur_dir}/run/".format(cur_dir=cur_dir)):
+        os.makedirs("./run")
+
+    if not os.path.exists("{cur_dir}/log/".format(cur_dir=cur_dir)):
+        os.makedirs("./log")
+
+    my_daemon = MyDaemon(
+        pidfile="{cur_dir}/run/daemon.pid".format(cur_dir=cur_dir),
+        stdout="{cur_dir}/log/daemon_stdout.log".format(cur_dir=cur_dir),
+        stderr="{cur_dir}/log/daemon_stderr.log".format(cur_dir=cur_dir)
+    )
+
+    daemon_name = "agent"
+    if action == "start":
+        my_daemon.start()
+    elif action == "stop":
+        my_daemon.stop()
+    elif action == "restart":
+        my_daemon.restart()
+    elif action == "status":
+        alive = my_daemon.is_running()
+        if alive:
+            print('process [%s] is running ......' % my_daemon.get_pid())
+        else:
+            print('daemon process [%s] stopped' % daemon_name)
+    else:
+        print "Unknown command"
+        sys.exit(2)
 
 if __name__ == '__main__':
     import sys
@@ -163,6 +210,7 @@ if __name__ == '__main__':
     import os
     root_path = os.path.split(os.path.realpath(__file__))[0]
     os.chdir(root_path)
+    time_flag = True
     if len(sys.argv) < 2:
         print "Usage:"
         for k, v in sorted(globals().items(), key=lambda item: item[0]):
@@ -193,10 +241,11 @@ if __name__ == '__main__':
                             1:-1].replace(",", "")
             sys.exit(-1)
         args = sys.argv[2:]
-        now_start = int(time.time())
-        timeArray = time.localtime(now_start)
-        timeStr = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
-        print "\x1B[;36m[start time]\x1B[0m:%s" % timeStr
+        if time_flag:
+            now_start = int(time.time())
+            timeArray = time.localtime(now_start)
+            timeStr = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
+            print "\x1B[;36m[start time]\x1B[0m:%s" % timeStr
         try:
             r = func(*args)
         except Exception as e:
@@ -210,14 +259,15 @@ if __name__ == '__main__':
             r = -1
             import traceback
             traceback.print_exc()
-        now_end = int(time.time())
-        timeArray = time.localtime(now_end)
-        timeStr = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
-        print "\x1B[;36m[end time]\x1B[0m :%s" % timeStr
-        time_consum = now_end - now_start
-        time_consum_minute = time_consum / 60
-        time_consum_second = time_consum % 60
-        print "\x1B[;36m[consum time]\x1B[0m %s m:%s s" % (
-            time_consum_minute, time_consum_second)
+        if time_flag:
+            now_end = int(time.time())
+            timeArray = time.localtime(now_end)
+            timeStr = time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
+            print "\x1B[;36m[end time]\x1B[0m :%s" % timeStr
+            time_consum = now_end - now_start
+            time_consum_minute = time_consum / 60
+            time_consum_second = time_consum % 60
+            print "\x1B[;36m[consum time]\x1B[0m %s m:%s s" % (
+                time_consum_minute, time_consum_second)
         if isinstance(r, int):
             sys.exit(r)

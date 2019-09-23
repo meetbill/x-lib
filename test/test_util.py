@@ -8,14 +8,14 @@
 # Description:
 
 """
-import w_lib.util
+import xlib.util
 
 
 def test_parse_size():
-    assert w_lib.util.parse_size("20K") == 20480
-    assert w_lib.util.parse_size("20k") == 20480
+    assert xlib.util.parse_size("20K") == 20480
+    assert xlib.util.parse_size("20k") == 20480
 
 
 def test_format_size():
-    assert w_lib.util.format_size(20480) == "20.00K"
-    assert w_lib.util.format_size("20480") == "20.00K"
+    assert xlib.util.format_size(20480) == "20.00K"
+    assert xlib.util.format_size("20480") == "20.00K"
